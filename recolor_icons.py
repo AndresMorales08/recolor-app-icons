@@ -1,6 +1,24 @@
 import os
 import colorsys
-from PIL import Image, ImageColor, ImageFilter, UnidentifiedImageError # <-- ImageFilter 新增
+from PIL import Image, ImageColor, ImageFilter, UnidentifiedImageError # ImageFilter is needed
+import math
+
+# --- Helper Functions (hex_to_rgb_normalized, rgb_normalized_to_rgba_int, hex_to_rgba) ---
+# (These functions remain the same as in the previous 'posterize' script)
+def hex_to_rgb_normalized(hex_color):
+    """将 HEX 颜色字符串转换为归一化的 RGB 元组 (0.0-1.0)。"""
+    try:
+        rgb_int = ImageColor.getrgb(hex_color)
+        return tuple(c / 255.0 for c in rgb_int)
+    except ValueError:
+        raise ValueError(f"无效的 HEX 颜色代码: {hex_color}")
+
+def rgb_normalized_to_rgba_int(rgb_norm, alpha=255):
+    """将归一化的 RGB (0.0-1.0) 转换为整数 RGBA (0-255)。"""
+    r = min(255, max(0, int(rgb_norm[0] * 255 + 0.5)))
+    g = min(255, max(0, int(rgb_norm[1] * 255 + 0.5)))
+    b = min(255, max(0, int(rgb_norm[2] * 255 + 0.5)))
+    return (r, g, b, alpha)
 
 def hex_to_rgba(hex_color):
     """将 HEX 颜色字符串转换为 RGBA 元组 (0-255)。"""
@@ -9,94 +27,140 @@ def hex_to_rgba(hex_color):
         return rgb + (255,) # 添加完全不透明的 alpha
     except ValueError:
         raise ValueError(f"无效的 HEX 颜色代码: {hex_color}")
+# ------------------------------------------------------------------------------
 
-def recolor_icon_minimalist(image_path, output_path, target_color_rgba, threshold=128, blur_radius=0):
+def generate_palette(base_hex, num_colors=3):
     """
-    读取图标，应用模糊（可选），然后进行阈值处理以创建极简风格。
-    亮部使用目标颜色，暗部透明，保留原始轮廓的 alpha。
+    基于基础 HEX 颜色，生成一个包含 num_colors 种颜色的调色板 (RGBA 整数元组列表)，
+    通过调整亮度生成，从暗到亮排序。
+    (This function remains the same as in the previous 'posterize' script)
+    """
+    if num_colors < 2:
+        num_colors = 2
+
+    try:
+        base_rgb_norm = hex_to_rgb_normalized(base_hex)
+        base_h, base_l, base_s = colorsys.rgb_to_hls(*base_rgb_norm)
+        print(f"基础颜色 HLS: (H={base_h:.3f}, L={base_l:.3f}, S={base_s:.3f})")
+
+        palette_rgba = []
+        min_l = 0.25
+        max_l = 0.85
+
+        if num_colors == 1:
+            lightness_levels = [base_l]
+        else:
+             lightness_levels = [min_l + (max_l - min_l) * i / (num_colors - 1) for i in range(num_colors)]
+
+        closest_idx = min(range(num_colors), key=lambda i: abs(lightness_levels[i] - base_l))
+        lightness_levels[closest_idx] = base_l
+        lightness_levels.sort()
+
+        print(f"生成的亮度级别: {[f'{l:.3f}' for l in lightness_levels]}")
+
+        for l in lightness_levels:
+            l_clamped = max(0.0, min(1.0, l))
+            # s_adjusted = base_s * (1 - abs(l_clamped - 0.5) * 0.5) # 保持原始饱和度可能更好
+            # s_adjusted = max(0.0, min(1.0, s_adjusted))
+            new_rgb_norm = colorsys.hls_to_rgb(base_h, l_clamped, base_s)
+            palette_rgba.append(rgb_normalized_to_rgba_int(new_rgb_norm))
+
+        print("生成的调色板 (RGBA):")
+        for i, color in enumerate(palette_rgba):
+            print(f"  Level {i}: {color}")
+        return palette_rgba
+
+    except Exception as e:
+        print(f"生成调色板时出错: {e}")
+        try:
+            base_rgba = hex_to_rgba(base_hex)
+            return [base_rgba]
+        except:
+            raise ValueError("无法生成调色板且无法获取基础色")
+
+
+# --- MODIFIED FUNCTION ---
+def recolor_icon_posterize_blur(image_path, output_path, palette, blur_radius=0.8):
+    """
+    读取图标，应用高斯模糊（如果 blur_radius > 0），
+    然后将其颜色量化到提供的调色板，保留原始 alpha。
     """
     try:
+        num_colors = len(palette)
+        if num_colors == 0:
+            print("错误：调色板为空！")
+            return
+
         # 打开图像并确保是 RGBA 模式
         img = Image.open(image_path).convert("RGBA")
         original_alpha = img.getchannel('A') # 保存原始 alpha 通道
 
-        # --- 1. 转换为灰度图 ---
+        # 转换为灰度图以获取亮度
         img_gray = img.convert('L')
 
-        # --- 2. (可选) 应用高斯模糊 ---
+        # --- >>> 新增：应用高斯模糊 <<< ---
         if blur_radius > 0:
             img_gray = img_gray.filter(ImageFilter.GaussianBlur(radius=blur_radius))
-            print(f"  应用高斯模糊, 半径: {blur_radius}")
+            print(f"  应用高斯模糊, 半径: {blur_radius:.2f}")
+        # --- >>> 模糊结束 <<< ---
 
-        # --- 3. 阈值处理 ---
-        img_threshold = img_gray.point(lambda p: 255 if p > threshold else 0, mode='1')
-        # mode='1' 产生一个只有黑(0)白(255)的二值图像
-        # 白色部分代表原始图像中亮度高于阈值的区域
-
-        # --- 4. 创建新的彩色图像 ---
-        # 创建一个完全透明的背景
-        new_img = Image.new('RGBA', img.size, (0, 0, 0, 0))
-
-        # 创建一个目标颜色的图层 (只含 RGB，忽略 alpha)
-        # 我们将使用原始 alpha 和阈值结果作为蒙版
-        color_layer = Image.new('RGB', img.size, target_color_rgba[:3])
-
-        # --- 5. 合成最终图像 ---
-        # 关键：蒙版需要结合原始 alpha 和阈值结果
-        # 我们希望只在原始图像不透明 *且* 亮度高于阈值的区域应用目标色
-
-        # 将阈值图像 (mode '1') 转换为 'L' 模式，以便用作蒙版
-        # 白色 (255) 区域将被着色，黑色 (0) 区域将保持透明
-        threshold_mask_L = img_threshold.convert('L')
-
-        # 将原始 alpha 通道 ('L' 模式) 与阈值蒙版 ('L' 模式) 结合
-        # 使用 point 实现逐像素的 "与" 操作：只有当两者都 > 0 时，结果才 > 0
-        # 这里我们取两者中的最小值，效果等同于逻辑与 (因为阈值蒙版只有 0 和 255)
-        # 最终蒙版：原始图像不透明且亮度高于阈值的区域为白色(或灰色)，其余为黑色
-        final_mask = Image.blend(threshold_mask_L, original_alpha.point(lambda p: 255 if p > 0 else 0), 0.0) # 不透明区域转为255
-        # 更精确的结合方式：
-        final_mask_data = []
-        threshold_data = threshold_mask_L.getdata()
+        # 获取（可能已模糊的）灰度数据和原始 Alpha 数据
+        gray_data = img_gray.getdata()
         alpha_data = original_alpha.getdata()
-        for i in range(len(alpha_data)):
-            # 只有当原始 alpha > 0 且 阈值判断为前景(255) 时，才应用颜色
-            # 并且最终的 alpha 取决于原始 alpha
-            if alpha_data[i] > 0 and threshold_data[i] == 255:
-                final_mask_data.append(alpha_data[i]) # 使用原始 alpha 实现抗锯齿
+
+        new_data = []
+        # 计算亮度阈值
+        thresholds = [(i + 1) * 256 / num_colors for i in range(num_colors - 1)]
+
+        for i in range(len(gray_data)):
+            gray_value = gray_data[i]
+            alpha_value = alpha_data[i]
+
+            if alpha_value > 0:
+                # 确定颜色区间
+                color_index = 0
+                for threshold in thresholds:
+                    if gray_value > threshold:
+                        color_index += 1
+                    else:
+                        break
+
+                chosen_color_rgb = palette[color_index][:3]
+                new_data.append(chosen_color_rgb + (alpha_value,))
             else:
-                final_mask_data.append(0) # 其他区域完全透明
+                new_data.append((0, 0, 0, 0))
 
-        final_mask_image = Image.new('L', img.size)
-        final_mask_image.putdata(final_mask_data)
-
-
-        # 将目标色图层粘贴到透明背景上，使用最终计算出的蒙版
-        new_img.paste(color_layer, (0, 0), mask=final_mask_image) # 使用精细蒙版
+        # 创建新图像并填充处理后的像素数据
+        new_img = Image.new("RGBA", img.size)
+        new_img.putdata(new_data)
 
         # 保存为 PNG 格式
         new_img.save(output_path, format='PNG')
-        print(f"处理完成 (极简): {os.path.basename(image_path)} -> {os.path.basename(output_path)}")
+        print(f"处理完成 (Blurred Posterize): {os.path.basename(image_path)} -> {os.path.basename(output_path)}")
 
     except UnidentifiedImageError:
         print(f"跳过非图像或无法识别的文件: {os.path.basename(image_path)}")
     except Exception as e:
         print(f"处理文件 {os.path.basename(image_path)} 时出错: {e}")
-        # import traceback # 取消注释以查看详细错误
-        # traceback.print_exc()
+        import traceback
+        traceback.print_exc()
+# --- END OF MODIFIED FUNCTION ---
 
 def main():
     # --- 配置 ---
     input_directory = r"D:\GitHubRepos\recolor-app-icons\input"
     output_directory = r"D:\GitHubRepos\recolor-app-icons\output"
     target_hex_color = "#73dee3"
-    threshold_value = 130  # 亮度阈值 (0-255)，可以调整这个值！ 128是中间值，较低的值会包含更多暗部
-    blur_radius = 1      # 高斯模糊半径 (0表示不模糊)，可以调整这个值！ 1 或 2 通常能提供不错的简化效果
+    number_of_colors = 3  # 调色板中的颜色数量
+    blur_radius = 0.8     # <<< 高斯模糊半径 (0 表示不模糊, 建议 0.5 - 1.5 之间)
     # -------------
 
-    # 验证并获取目标颜色的 RGBA 值
+    # 生成调色板
     try:
-        target_color_rgba = hex_to_rgba(target_hex_color)
-        print(f"目标颜色: {target_hex_color} -> RGBA: {target_color_rgba}")
+        palette = generate_palette(target_hex_color, number_of_colors)
+        if not palette:
+            print("错误：无法生成调色板。")
+            return
     except ValueError as e:
         print(f"错误: {e}")
         return
@@ -110,8 +174,8 @@ def main():
     os.makedirs(output_directory, exist_ok=True)
     print(f"输入目录: {input_directory}")
     print(f"输出目录: {output_directory}")
-    print(f"亮度阈值: {threshold_value}")
-    print(f"高斯模糊半径: {blur_radius}")
+    print(f"使用的颜色数: {len(palette)}")
+    print(f"高斯模糊半径: {blur_radius if blur_radius > 0 else '无'}") # 打印模糊设置
 
     # 遍历输入目录
     count = 0
@@ -129,8 +193,8 @@ def main():
 
             if os.path.isfile(input_path):
                 try:
-                    # 调用新的处理函数
-                    recolor_icon_minimalist(input_path, output_path, target_color_rgba, threshold_value, blur_radius)
+                    # 调用修改后的处理函数，传入模糊半径
+                    recolor_icon_posterize_blur(input_path, output_path, palette, blur_radius)
                     processed_count += 1
                 except Exception as e:
                     error_count += 1
